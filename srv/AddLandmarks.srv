@@ -1,0 +1,4 @@
+geometry_msgs/Pose[] poses
+float64[] target_coverages
+---
+int32[] ids

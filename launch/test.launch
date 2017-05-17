@@ -1,0 +1,42 @@
+<launch>
+
+  <node name="cloud" pkg="cloud_coverage" type="cloud.py"/>
+  <node name="plotter" pkg="cloud_coverage" type="plotter.py"/>
+
+  <group ns="BLUE">
+    <param name="name" value="BLUE"/>
+    <param name="initial_position" value="-3 0 0"/>
+    <param name="arrival_time" value="3"/>
+    <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
+    <node name="controller" pkg="cloud_coverage" type="controller.py"/>
+  </group>
+
+  <group ns="RED">
+    <param name="name" value="RED"/>
+    <param name="initial_position" value="-3 0 3"/>
+    <param name="arrival_time" value="3"/>
+    <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
+    <node name="controller" pkg="cloud_coverage" type="controller.py"/>
+  </group>
+
+  <group ns="ORANGE">
+    <param name="name" value="ORANGE"/>
+    <param name="initial_position" value="-3 3 0"/>
+    <param name="arrival_time" value="3"/>
+    <param name="departure_time" value="400"/>
+    <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
+    <node name="controller" pkg="cloud_coverage" type="controller.py"/>
+  </group>
+
+  <group ns="MAGENTA">
+    <param name="name" value="MAGENTA"/>
+    <param name="initial_position" value="-3 3 3"/>
+    <param name="arrival_time" value="3"/>
+    <param name="departure_time" value="400"/>
+    <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
+    <node name="controller" pkg="cloud_coverage" type="controller.py"/>
+  </group>
+
+  <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
+
+</launch>

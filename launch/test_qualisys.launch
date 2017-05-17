@@ -1,0 +1,34 @@
+<launch>
+
+  <include file="$(find qualisys)/launch/qualisys.launch"/>
+
+  <node name="cloud" pkg="cloud_coverage" type="cloud.py"/>
+  <node name="plotter" pkg="cloud_coverage" type="plotter.py"/>
+  <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
+
+  <group ns="BLUE">
+    <param name="name" value="BLUE"/>
+    <param name="arrival_time" value="3"/>
+    <node name="controller" pkg="cloud_coverage" type="controller.py"/>
+    <node name="mocap_bridge" pkg="cloud_coverage" type="pose_stamped_to_pose_bridge.py"/>
+    <node name="controller_bridge" pkg="cloud_coverage" type="controller_bridge.py"/>
+  </group>
+
+  <remap from="load/pose" to="BLUE/pose_stamped"/>
+  <include file="$(find qualisys)/launch/qualisys_odom.launch">
+    <arg name="model" value="load"/>
+  </include>
+
+  <group ns="RED">
+    <param name="name" value="RED"/>
+    <param name="arrival_time" value="3"/>
+    <node name="controller" pkg="cloud_coverage" type="controller.py"/>
+    <node name="bridge" pkg="cloud_coverage" type="pose_stamped_to_pose_bridge.py"/>
+    </group>
+
+  <remap from="load2/pose" to="RED/pose_stamped"/>
+  <include file="$(find qualisys)/launch/qualisys_odom.launch">
+    <arg name="model" value="load2"/>
+  </include>
+
+</launch>
