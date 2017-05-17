@@ -12,7 +12,7 @@ def saturate(vec, lim):
 
 rp.init_node("controller_bridge")
 pub = rp.Publisher("reference", gms.PoseStamped, queue_size=10)
-FREQUENCY = 5.0
+FREQUENCY = 30.0
 PERIOD = 1/FREQUENCY
 RATE = rp.Rate(FREQUENCY)
 LOCK = thd.Lock()
@@ -41,8 +41,8 @@ while pose_measurement is None or cmdvel is None:
 
 while not rp.is_shutdown():
     LOCK.acquire()
-    cmdvel.linear = saturate(cmdvel.linear, 0.05)
-    reference = cmdvel.integrate(PERIOD).apply_to(pose_measurement)
+    cmdvel.linear = saturate(cmdvel.linear, 0.1)
+    reference = cmdvel.integrate(0.1).apply_to(pose_measurement)
     msg = gms.PoseStamped(pose=reference.serialized)
     pub.publish(msg)
     LOCK.release()

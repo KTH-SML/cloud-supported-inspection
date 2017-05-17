@@ -26,7 +26,7 @@ Agent.__new__.__defaults__ = None,
 pose = None
 cmd_twist = None
 footprint = cfp.CompositeFootprint()
-feasible_set = cfs.FeasibleCylinder(radius=2.0)
+feasible_set = cfs.FeasibleCylinder(radius=0.0)
 collision_set = cfs.FeasibleSphere(radius=1.0)
 
 
@@ -44,6 +44,7 @@ TIME_STEP = 1/FREQUENCY
 FAST_RATE = rp.Rate(FREQUENCY)
 SLOW_RATE = rp.Rate(FREQUENCY)
 rate = FAST_RATE
+GAIN = 5.0
 
 while rp.get_time() < INITIAL_TIME + ARRIVAL_TIME:
     rate.sleep()
@@ -113,14 +114,18 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
                 pos_grad += pg
                 ori_grad += og
                 #rp.logwarn(landmark)
-            pos_grad /= float(len(landmarks))
-            ori_grad /= float(len(landmarks))
+            pos_grad *= GAIN/float(len(landmarks))
+            ori_grad *= GAIN/float(len(landmarks))
             ori_grad = ori_grad.project_onto(gmi.E3)
         colliding_nbr = None
+        collision_danger = 0.0
         for name, nbr in other_agents.items():
-            if not nbr.pose is None and not collision_set.indicator_function(nbr.pose.position, pose.position) and (name > NAME or len(landmarks) is 0):
+            if not nbr.pose is None:
+                violation = collision_set.indicator_function(nbr.pose.position, pose.position)
+                if (name < NAME or (len(landmarks) is 0)) and violation < collision_danger:
                     colliding_nbr = name
-                    #rp.logwarn("@{}: Collision detected: distance is {}".format(NAME, (nbr.pose.position-pose.position).norm))
+                    collision_danger = violation
+                    rp.logwarn("@{}: Collision detected: distance is {}".format(NAME, (nbr.pose.position-pose.position).norm))
                     #owo = collision_set.outward_orthogonal(nbr.pose.position, pose.position)
                     # if owo*pos_grad < 0:
                     #     owos.append(owo)
@@ -132,7 +137,7 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
         # if len(owos) is 1:
         #     pos_grad -= pos_grad.project_onto(owos[0])
         if not colliding_nbr is None:
-            pos_grad = collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
+            pos_grad = -GAIN*collision_danger*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
         if not feasible_set.indicator_function(pose.position):
             #rp.logwarn("@{}: Out of the feasible cylinder: distance is {}".format(NAME, np.linalg.norm([pose.position.x, pose.position.y])))
             owo = feasible_set.outward_orthogonal(pose.position)

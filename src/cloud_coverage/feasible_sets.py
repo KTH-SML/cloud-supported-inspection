@@ -24,7 +24,7 @@ class FeasibleCylinder(_FeasibleSet):
         _FeasibleSet.__init__(self)
 
     def indicator_function(self, point):
-        return np.linalg.norm([point.x, point.y]) > self._RADIUS
+        return np.linalg.norm([point.x, point.y]) - self._RADIUS
 
     def outward_orthogonal(self, point):
         vec = gmi.Vector(point.x, point.y, 0.0)
@@ -39,7 +39,7 @@ class FeasibleSphere(_FeasibleSet):
         _FeasibleSet.__init__(self)
 
     def indicator_function(self, center, point):
-        return (point - center).norm > self._RADIUS
+        return (point - center).norm - self._RADIUS
 
     def outward_orthogonal(self, center, point):
         vec = point - center
