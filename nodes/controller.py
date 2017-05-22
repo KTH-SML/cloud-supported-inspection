@@ -25,9 +25,9 @@ Agent.__new__.__defaults__ = None,
 
 pose = None
 cmd_twist = None
-footprint = cfp.CompositeFootprint()
-feasible_set = cfs.FeasibleCylinder(radius=0.0)
-collision_set = cfs.FeasibleSphere(radius=1.0)
+footprint = cfp.CompositeFootprint(best_distance=1.5)
+feasible_set = cfs.FeasibleHalfCylinder(radius=4.5)
+collision_set = cfs.FeasibleSphere(radius=2.5)
 
 
 
@@ -44,7 +44,8 @@ TIME_STEP = 1/FREQUENCY
 FAST_RATE = rp.Rate(FREQUENCY)
 SLOW_RATE = rp.Rate(FREQUENCY)
 rate = FAST_RATE
-GAIN = 5.0
+GAIN = 1.0
+SATURATION = 0.5
 
 while rp.get_time() < INITIAL_TIME + ARRIVAL_TIME:
     rate.sleep()
@@ -125,7 +126,7 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
                 if (name < NAME or (len(landmarks) is 0)) and violation < collision_danger:
                     colliding_nbr = name
                     collision_danger = violation
-                    rp.logwarn("@{}: Collision detected: distance is {}".format(NAME, (nbr.pose.position-pose.position).norm))
+                    #rp.logwarn("@{}: Collision detected: distance is {}".format(NAME, (nbr.pose.position-pose.position).norm))
                     #owo = collision_set.outward_orthogonal(nbr.pose.position, pose.position)
                     # if owo*pos_grad < 0:
                     #     owos.append(owo)
@@ -137,25 +138,27 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
         # if len(owos) is 1:
         #     pos_grad -= pos_grad.project_onto(owos[0])
         if not colliding_nbr is None:
-            pos_grad = -GAIN*collision_danger*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
+            pos_grad = GAIN*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
+            #rp.logwarn(pos_grad.norm)
         if not feasible_set.indicator_function(pose.position):
             #rp.logwarn("@{}: Out of the feasible cylinder: distance is {}".format(NAME, np.linalg.norm([pose.position.x, pose.position.y])))
             owo = feasible_set.outward_orthogonal(pose.position)
             if owo*pos_grad < 0:
                 pos_grad -= pos_grad.project_onto(owo)
-        pos_grad = pos_grad.saturate(1.0)
-        if pos_grad.norm < 1e-4:
-            ids_to_return = list()
-            coverages_to_return = list()
-            for key, landmark in landmarks.items():
-                ids_to_return.append(key)
-                coverages_to_return.append(landmarks[key].coverage)
-            if len(ids_to_return) > 0:
-                return_landmarks_proxy.call(ids_to_return, coverages_to_return)
-                rp.logwarn("@{} controller: I returned the landmarks {}".format(NAME, ids_to_return))
-                for id_ in ids_to_return:
-                    landmarks.pop(id_)
-            rate = SLOW_RATE
+        pos_grad = pos_grad.saturate(SATURATION)
+        ori_grad = ori_grad.saturate(SATURATION)
+        # if pos_grad.norm < 1e-4:
+        #     ids_to_return = list()
+        #     coverages_to_return = list()
+        #     for key, landmark in landmarks.items():
+        #         ids_to_return.append(key)
+        #         coverages_to_return.append(landmarks[key].coverage)
+        #     if len(ids_to_return) > 0:
+        #         return_landmarks_proxy.call(ids_to_return, coverages_to_return)
+        #         rp.logwarn("@{} controller: I returned the landmarks {}".format(NAME, ids_to_return))
+        #         for id_ in ids_to_return:
+        #             landmarks.pop(id_)
+        #     rate = SLOW_RATE
         pub.publish(pos_grad, ori_grad)
         #pose = None
         ids_to_return = list()
@@ -173,7 +176,6 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
             except:
                 pass
     LOCK.release()
-
     new_agent_pub.publish(NAME)
     rate.sleep()
 

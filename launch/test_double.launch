@@ -11,15 +11,15 @@
     <node name="controller" pkg="cloud_coverage" type="controller.py"/>
   </group>
 
-  <!-- <group ns="RED">
+  <group ns="RED">
     <param name="name" value="RED"/>
-    <param name="initial_position" value="-3 0 3"/>
+    <param name="initial_position" value="-3 -3 1"/>
     <param name="arrival_time" value="3"/>
     <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
     <node name="controller" pkg="cloud_coverage" type="controller.py"/>
   </group>
 
-  <group ns="ORANGE">
+  <!--group ns="ORANGE">
     <param name="name" value="ORANGE"/>
     <param name="initial_position" value="-3 3 0"/>
     <param name="arrival_time" value="3"/>
@@ -39,6 +39,6 @@
 
   <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
 
-  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose -o $(find cloud_coverage)"/>
+  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose /RED/pose -o $(find cloud_coverage)"/>
 
 </launch>

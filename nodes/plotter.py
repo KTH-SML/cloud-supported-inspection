@@ -45,7 +45,7 @@ ax.set_autoscalex_on(False)
 ax.set_xlim([-3, 3])
 ax.set_autoscaley_on(False)
 ax.set_ylim([-3, 3])
-ax.set_zlim([0, 6])
+ax.set_zlim([0, 10])
 #ax.autoscale_view()
 ax.set_aspect("equal")
 plt.draw()
@@ -128,7 +128,7 @@ while not rp.is_shutdown():
     LANDMARK_LOCK.acquire()
     while incoming_landmarks:
         id_, incoming_landmark = incoming_landmarks.popitem()
-        landmarks[id_] = Landmark(POSE=incoming_landmark.POSE, artists=incoming_landmark.POSE.draw(color=incoming_landmark.COLOR, show_x=False, show_y=False, show_z=False))
+        landmarks[id_] = Landmark(POSE=incoming_landmark.POSE, artists=incoming_landmark.POSE.draw(color=incoming_landmark.COLOR, show_x=True, show_y=False, show_z=False, alpha=0.3))
     processed_recolors = list()
     while landmarks_to_recolor:
         id_, color = landmarks_to_recolor.popitem()
@@ -136,7 +136,7 @@ while not rp.is_shutdown():
         if not lmk is None:
             for artist in lmk.artists:
                 artist.remove()
-            lmk.artists = lmk.POSE.draw(color=color, show_x=False, show_y=False, show_z=False)
+            lmk.artists = lmk.POSE.draw(color=color, show_x=True, show_y=False, show_z=False, alpha=0.3)
     while landmarks_to_cancel:
         id_ = landmarks_to_cancel.pop()
         lmk = landmarks.get(id_, None)

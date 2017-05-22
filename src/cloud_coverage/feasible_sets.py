@@ -31,6 +31,25 @@ class FeasibleCylinder(_FeasibleSet):
         return vec/vec.norm
 
 
+class FeasibleHalfCylinder(_FeasibleSet):
+
+        def __init__(self, radius = 1.0):
+            self._RADIUS = radius
+            _FeasibleSet.__init__(self)
+
+        def indicator_function(self, point):
+            if -self._RADIUS < point.x < self._RADIUS:
+                return np.linalg.norm([point.x, point.y]) - self._RADIUS
+            else: return point.y
+
+        def outward_orthogonal(self, point):
+            if -self._RADIUS < point.x < self._RADIUS:
+                vec = gmi.Vector(point.x, point.y, 0.0)
+                return vec/vec.norm
+            else: return Vector(0,1,0)
+
+
+
 
 class FeasibleSphere(_FeasibleSet):
 

@@ -9,6 +9,7 @@ import cloud_coverage.srv as ccs
 import rospy as rp
 
 import threading as thd
+import math as m
 
 
 
@@ -16,7 +17,7 @@ rp.init_node("simulator")
 init_pos = gmi.Point(*[float(arg) for arg in rp.get_param("initial_position", "0 0 0").split()])
 rp.logwarn(init_pos)
 
-pose = gmi.Pose(init_pos, gmi.UnitQuaternion())
+pose = gmi.Pose(init_pos, gmi.UnitQuaternion(axis=gmi.E3, angle=-m.pi/2))
 cmd_twist = None
 
 LOCK = thd.Lock()
