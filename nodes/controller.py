@@ -26,7 +26,7 @@ Agent.__new__.__defaults__ = None,
 pose = None
 cmd_twist = None
 footprint = cfp.CompositeFootprint(best_distance=1.5)
-feasible_set = cfs.FeasibleHalfCylinder(radius=4.5)
+feasible_set = cfs.FeasibleCylinder(radius=4.5)
 collision_set = cfs.FeasibleSphere(radius=2.5)
 
 
@@ -44,8 +44,8 @@ TIME_STEP = 1/FREQUENCY
 FAST_RATE = rp.Rate(FREQUENCY)
 SLOW_RATE = rp.Rate(FREQUENCY)
 rate = FAST_RATE
-GAIN = 1.0
-SATURATION = 0.5
+GAIN = 0.5
+SATURATION = 1.0
 
 while rp.get_time() < INITIAL_TIME + ARRIVAL_TIME:
     rate.sleep()
@@ -126,7 +126,7 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
                 if (name < NAME or (len(landmarks) is 0)) and violation < collision_danger:
                     colliding_nbr = name
                     collision_danger = violation
-                    #rp.logwarn("@{}: Collision detected: distance is {}".format(NAME, (nbr.pose.position-pose.position).norm))
+                    rp.logwarn("@{}: Collision detected: {}".format(NAME, (nbr.pose.position-pose.position).norm))
                     #owo = collision_set.outward_orthogonal(nbr.pose.position, pose.position)
                     # if owo*pos_grad < 0:
                     #     owos.append(owo)
@@ -146,7 +146,7 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
             if owo*pos_grad < 0:
                 pos_grad -= pos_grad.project_onto(owo)
         pos_grad = pos_grad.saturate(SATURATION)
-        ori_grad = ori_grad.saturate(SATURATION)
+        ori_grad = ori_grad.saturate(0.3*SATURATION)
         # if pos_grad.norm < 1e-4:
         #     ids_to_return = list()
         #     coverages_to_return = list()

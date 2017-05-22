@@ -13,10 +13,10 @@ import math as m
 NUM_LANDMARKS = 50
 DELTA_ANGLE = 0.3
 DELTA_HEIGHT = 0.1
-RADIUS = 2.0
+RADIUS = 4.0
 
 angle = 0.2
-height = 1.8
+height = 3.0
 
 poses = list()
 targets = list()
