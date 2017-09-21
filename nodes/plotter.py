@@ -31,8 +31,8 @@ AGENT_LOCK = thd.Lock()
 agents = dict()
 agents_to_cancel = list()
 
-
-
+OFFSET = [float(elem) for elem in rp.get_param("/offset").split()]
+#OFFSET = (16.5, -4.4)
 
 plt.ion()
 fig = plt.figure(figsize=(15,15))
@@ -42,10 +42,10 @@ ax.set_ylabel(r"$y$")
 ax.set_zlabel(r"$z$")
 #ax.view_init(90, 0)
 ax.set_autoscalex_on(False)
-ax.set_xlim([-3, 3])
+ax.set_xlim([-10.0+OFFSET[0], 10.0+OFFSET[0]])
 ax.set_autoscaley_on(False)
-ax.set_ylim([-3, 3])
-ax.set_zlim([0, 10])
+ax.set_ylim([-10.0+OFFSET[1], 10.0+OFFSET[1]])
+ax.set_zlim([3.0, 30.0])
 #ax.autoscale_view()
 ax.set_aspect("equal")
 plt.draw()

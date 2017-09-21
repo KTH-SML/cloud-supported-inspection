@@ -16,11 +16,12 @@ import math as m
 
 
 rp.init_node("simulator")
-init_pos = gmi.Point(*[float(arg) for arg in rp.get_param("initial_position", "0 0 0").split()])
-rp.logwarn(init_pos)
+init_pos = gmi.Point(*[float(arg) for arg in rp.get_param("initial_position").split()])
+init_angle = float(rp.get_param("initial_angle", 0.0))
+#rp.logwarn(init_pos)
 
-pose = gmi.Pose(init_pos, gmi.UnitQuaternion(axis=gmi.E3, angle=0.0))
-reference = cms.Reference(*[float(arg) for arg in rp.get_param("initial_position", "0 0 0").split()]+[0.0])
+pose = gmi.Pose(init_pos, gmi.UnitQuaternion(axis=gmi.E3, angle=init_angle))
+reference = cms.Reference(*[float(arg) for arg in rp.get_param("initial_position").split()]+[0.0])
 cmd_twist = None
 
 LOCK = thd.Lock()

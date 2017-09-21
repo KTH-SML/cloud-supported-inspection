@@ -2,6 +2,7 @@ import geomthree.impl as gmi
 import math as m
 import rospy as rp
 import matplotlib.pyplot as plt
+import mpl_toolkits.mplot3d as mp3
 import numpy as np
 #import matplotlib2tikz as m2t
 #plt.switch_backend('TKagg')
@@ -10,12 +11,12 @@ import numpy as np
 class _AbstractFootprint:
 
     def __init__(self):
-        raise NotImplementedError()
+        pass
 
     def __call__(self, sensor, landmark):
         raise NotImplementedError()
 
-    def contour_plot(self, xlim=(-1,1), ylim=(-1,1), num=30, levels=(0.2, 0.5, 1-0.5**2, 1-0.5**3, 1-0.5**4, 1-0.5**5)):
+    def generate_plot_data(self, xlim=(-1,1), ylim=(-1,1), num=50):
         sns = gmi.Pose()
         qx = np.linspace(xlim[0], xlim[1], num=num)
         qy = np.linspace(ylim[0], ylim[1], num=num)
@@ -25,10 +26,84 @@ class _AbstractFootprint:
                 lmk = gmi.Pose(gmi.Point(qx[index],qy[jndex],0), sns.orientation)
                 values[jndex,index] = self(sns, lmk)[0]
         mqx, mqy = np.meshgrid(qx, qy)
-        ctp = plt.contour(mqx, mqy, values, levels=levels, cmap="jet")
-        cbar = plt.colorbar(ctp, ticks=levels, orientation='horizontal')
-        return ctp, cbar
+        return mqx, mqy, values
 
+    def contour_plot(self, mqx, mqy, values, levels=(0.2, 0.5, 1-0.5**2, 1-0.5**3, 1-0.5**4, 1-0.5**5), cmap="jet"):
+        ctp = plt.contour(mqx, mqy, values, levels=levels, cmap=cmap)
+        cbar = plt.colorbar(ctp, ticks=levels, orientation='horizontal')
+        plt.grid()
+
+    def wireframe_plot(self, mqx, mqy, values):
+        mp3.Axes3D(plt.gcf()).plot_wireframe(mqx, mqy, values)
+        plt.grid()
+
+
+    def __mul__(self, other):
+        def fun(sen, lan):
+            val1, pg1, og1 = self(sen, lan)
+            val2, pg2, og2 = other(sen, lan)
+            val = val1*val2
+            pg = pg1*val2 + pg2*val1
+            og = og1*val2 + og2*val1
+            return val, pg, og
+        return ProductFootprint(fun)
+
+
+
+class ProductFootprint(_AbstractFootprint):
+
+    def __init__(self, fun):
+        _AbstractFootprint.__init__(self)
+        self.__FUN = fun
+
+    def __call__(self, sen, lan):
+        return self.__FUN(sen, lan)
+
+
+
+
+
+class EggFootprint(_AbstractFootprint):
+
+    def __init__(self, small_radius=1.0, big_radius=3.0):
+        self.__SMALL_RADIUS = small_radius
+        self.__BIG_RADIUS = big_radius
+
+    def __call__(self, sns, lmk):
+        R = self.__BIG_RADIUS
+        r = self.__SMALL_RADIUS
+        q = lmk.position
+        p = sns.position
+        nh = sns.orientation.xh
+        vec = (q-p-r*nh)
+        xi = vec*nh
+        zeta2_mi2 = vec.norm**2 - xi**2
+        if xi > 0:
+            val = 1.0 - vec.norm**2 / R**2
+            pg = 2*vec/R**2
+            og = 2*vec/R**2
+            if val < 0.0:
+                return 0.0, gmi.Vector(), gmi.Vector()
+            else:
+                return val, pg, gmi.Vector()
+        else:
+            val = 1.0 - xi**2/r**2 - zeta2_mi2/R**2
+            pg = 2*xi*(1/r**2-1/R**2)*nh + 2/R**2*vec
+            og = (2*xi*(1/R**2-1/r**2)+2/R**2)*vec
+            if val < 0.0:
+                return 0.0, gmi.Vector(), gmi.Vector()
+            else:
+                return val, pg, gmi.Vector()
+
+
+
+class AlignmentFootprint(_AbstractFootprint):
+
+    def __init__(self):
+        _AbstractFootprint.__init__(self)
+
+    def __call__(self, sns, lmk):
+        return max((0.0, sns.orientation.xh*lmk.orientation.xh)), gmi.Vector(), sns.orientation.xh.cross(lmk.orientation.xh)
 
 
 
@@ -91,23 +166,52 @@ class SplineFootprint(_AbstractFootprint):
 
 
 if __name__ == "__main__":
-    fpt = SplineFootprint()
-    print fpt(gmi.Pose(), gmi.Pose(gmi.Point(), gmi.UnitQuaternion()))
-    print fpt(gmi.Pose(), gmi.Pose(gmi.Point(1,0,0), gmi.UnitQuaternion()))
-    print fpt(gmi.Pose(), gmi.Pose(gmi.Point(2,0,0), gmi.UnitQuaternion()))
+
+    efp = EggFootprint(big_radius=4.0)
+    alg = AlignmentFootprint()
+    efp = efp*efp*alg
+    mqx, mqy, values = efp.generate_plot_data(xlim=(-1,5), ylim=(-5,5))
     plt.figure()
-    x = np.linspace(-1,8,200)
-    plt.plot(x, [fpt.spline(xi) for xi in x])
-    plt.grid(linestyle="dashed")
-    plt.xlabel("$x$")
-    plt.ylabel("$f$")
-    m2t.save("spline.tex")
+    efp.wireframe_plot(mqx, mqy, values)
 
     plt.figure()
-    ctp = fpt.contour_plot(xlim=(-1,5), ylim=(-3,3))
-    plt.grid(linestyle="dashed")
-    plt.xlabel("$q_x$")
-    plt.ylabel("$q_y$")
-    m2t.save("contour.tex")
+    efp.contour_plot(mqx, mqy, values)
+
+    # fpt = SplineFootprint()
+    # mqx, mqy, values = fpt.generate_plot_data(xlim=(-1,5), ylim=(-3,3))
+    # #plt.figure()
+    # #fpt.contour_plot(mqx, mqy, values)
+    # plt.figure()
+    # fpt.wireframe_plot(mqx, mqy, values)
+    #
+    # fpt2 = CompositeFootprint(best_distance=1.0, front_gain=0.05, rear_gain=0.75)
+    #
+    # plt.figure()
+    # mqx, mqy, values = fpt2.generate_plot_data(xlim=(-1,5), ylim=(-3,3))
+    # fpt2.wireframe_plot(mqx, mqy, values)
+    #
+    # pfpt = fpt*fpt2
+    #
+    # plt.figure()
+    # mqx, mqy, values = pfpt.generate_plot_data(xlim=(-1,5), ylim=(-3,3))
+    # pfpt.wireframe_plot(mqx, mqy, values)
+
+    # print fpt(gmi.Pose(), gmi.Pose(gmi.Point(), gmi.UnitQuaternion()))
+    # print fpt(gmi.Pose(), gmi.Pose(gmi.Point(1,0,0), gmi.UnitQuaternion()))
+    # print fpt(gmi.Pose(), gmi.Pose(gmi.Point(2,0,0), gmi.UnitQuaternion()))
+    # plt.figure()
+    # x = np.linspace(-1,8,200)
+    # plt.plot(x, [fpt.spline(xi) for xi in x])
+    # plt.grid(linestyle="dashed")
+    # plt.xlabel("$x$")
+    # plt.ylabel("$f$")
+    # m2t.save("spline.tex")
+    #
+    # plt.figure()
+    # ctp = fpt.contour_plot(xlim=(-1,5), ylim=(-3,3))
+    # plt.grid(linestyle="dashed")
+    # plt.xlabel("$q_x$")
+    # plt.ylabel("$q_y$")
+    # m2t.save("contour.tex")
 
     plt.show()

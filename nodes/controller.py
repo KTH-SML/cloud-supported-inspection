@@ -25,8 +25,12 @@ Agent.__new__.__defaults__ = None,
 
 pose = None
 cmd_twist = None
-footprint = cfp.CompositeFootprint(best_distance=1.5)
-feasible_set = cfs.FeasibleCylinder(radius=4.5)
+#footprint = cfp.CompositeFootprint(best_distance=1.5)
+footprint = cfp.EggFootprint(small_radius=1.0, big_radius=10.0)
+footprint = footprint*footprint*cfp.AlignmentFootprint()
+OFFSET = [float(elem) for elem in rp.get_param("/offset").split()]
+rp.logwarn(OFFSET)
+feasible_set = cfs.FeasibleCylinder(radius=5.0, x0=OFFSET[0], y0=OFFSET[1])
 collision_set = cfs.FeasibleSphere(radius=2.5)
 
 
@@ -44,7 +48,7 @@ TIME_STEP = 1/FREQUENCY
 FAST_RATE = rp.Rate(FREQUENCY)
 SLOW_RATE = rp.Rate(FREQUENCY)
 rate = FAST_RATE
-GAIN = 0.5
+GAIN = 5.0
 SATURATION = 1.0
 
 while rp.get_time() < INITIAL_TIME + ARRIVAL_TIME:
@@ -138,10 +142,10 @@ while not rp.is_shutdown() and not stop and rp.get_time() < INITIAL_TIME + DEPAR
         # if len(owos) is 1:
         #     pos_grad -= pos_grad.project_onto(owos[0])
         if not colliding_nbr is None:
-            pos_grad = GAIN*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
+            pos_grad = -GAIN*collision_danger*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
             #rp.logwarn(pos_grad.norm)
-        if not feasible_set.indicator_function(pose.position):
-            #rp.logwarn("@{}: Out of the feasible cylinder: distance is {}".format(NAME, np.linalg.norm([pose.position.x, pose.position.y])))
+        if feasible_set.indicator_function(pose.position) < 0.0:
+            rp.logwarn("@{}: Out of the feasible cylinder: distance is {}".format(NAME, np.linalg.norm([pose.position.x, pose.position.y])))
             owo = feasible_set.outward_orthogonal(pose.position)
             if owo*pos_grad < 0:
                 pos_grad -= pos_grad.project_onto(owo)

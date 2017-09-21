@@ -19,15 +19,17 @@ class _FeasibleSet:
 
 class FeasibleCylinder(_FeasibleSet):
 
-    def __init__(self, radius = 1.0):
+    def __init__(self, radius=1.0, x0=0.0, y0=0.0):
         self._RADIUS = radius
+        self._X0 = x0
+        self._Y0 = y0
         _FeasibleSet.__init__(self)
 
     def indicator_function(self, point):
-        return np.linalg.norm([point.x, point.y]) - self._RADIUS
+        return np.linalg.norm([point.x-self._X0, point.y-self._Y0]) - self._RADIUS
 
     def outward_orthogonal(self, point):
-        vec = gmi.Vector(point.x, point.y, 0.0)
+        vec = gmi.Vector(point.x-self._X0, point.y-self._Y0, 0.0)
         return vec/vec.norm
 
 

@@ -10,25 +10,32 @@ import math as m
 
 
 """Cylinder"""
-NUM_LANDMARKS = 50
-DELTA_ANGLE = 0.3
-DELTA_HEIGHT = 0.1
-RADIUS = 4.0
+NUM_LANDMARKS = 40
+DELTA_ANGLE = 2*m.pi/15
+DELTA_HEIGHT = 0.4
+RADIUS = 6.5
 
-angle = 0.2
-height = 3.0
+INITIAL_ANGLE = 0.0
+INITIAL_HEIGHT = 8.0
+OFFSET = gmi.Vector(*[float(elem) for elem in rp.get_param("offset").split()])
+rp.logwarn(OFFSET)
+
+angle = INITIAL_ANGLE
+height = INITIAL_HEIGHT
 
 poses = list()
 targets = list()
 
 for index in range(NUM_LANDMARKS):
-    position = gmi.Point(RADIUS*m.cos(angle), RADIUS*m.sin(angle), height)
-    orientation = gmi.UnitQuaternion(axis=gmi.Vector(0,0,1), angle=angle+m.pi)
+    position = gmi.Point(RADIUS*m.cos(angle+m.pi), RADIUS*m.sin(angle+m.pi), height) + OFFSET
+    orientation = gmi.UnitQuaternion(axis=gmi.Vector(0,0,1), angle=angle)
     pose = gmi.Pose(position, orientation)
     poses.append(pose.serialized)
     targets.append(0.99)
     angle += DELTA_ANGLE
     height += DELTA_HEIGHT
+
+rp.logwarn(OFFSET)
 
 
 """Wall"""

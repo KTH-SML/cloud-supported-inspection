@@ -3,9 +3,12 @@
   <node name="cloud" pkg="cloud_coverage" type="cloud.py"/>
   <node name="plotter" pkg="cloud_coverage" type="plotter.py"/>
 
+  <param name="offset" value="17.0 -2.7 0.0"/>
+
   <group ns="BLUE">
     <param name="name" value="BLUE"/>
-    <param name="initial_position" value="-3 3 1"/>
+    <param name="initial_position" value="9.0 -2.7 8.0"/>
+    <param name="initial_angle" value="0.0"/>
     <param name="arrival_time" value="3"/>
     <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
     <node name="controller" pkg="cloud_coverage" type="controller.py"/>
@@ -13,7 +16,8 @@
 
   <group ns="RED">
     <param name="name" value="RED"/>
-    <param name="initial_position" value="-3 -3 1"/>
+    <param name="initial_position" value="27.0 -2.7 8.0"/>
+    <param name="initial_angle" value="3.14"/>
     <param name="arrival_time" value="3"/>
     <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
     <node name="controller" pkg="cloud_coverage" type="controller.py"/>
@@ -39,6 +43,6 @@
 
   <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
 
-  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose /RED/pose -o $(find cloud_coverage)"/>
+  <!--node name="record_path" pkg="rosbag" type="record" args="record /BLUE/reference /RED/reference -o $(find cloud_coverage)_turbine_double"/-->
 
 </launch>
