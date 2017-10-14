@@ -42,6 +42,6 @@
 
   <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
 
-  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/reference -o $(find cloud_coverage)_turbine"/>
+  <!--node name="record_path" pkg="rosbag" type="record" args="record /BLUE/reference -o $(find cloud_coverage)_turbine"/-->
 
 </launch>
