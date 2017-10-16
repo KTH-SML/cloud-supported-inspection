@@ -7,6 +7,7 @@ import cloud_coverage.srv as ccs
 import cloud_coverage.footprints as cfp
 import cloud_coverage.feasible_sets as cfs
 import rospy as rp
+import cloud_coverage.landmarks_loader as cll
 
 import threading as thd
 import math as m
@@ -22,9 +23,11 @@ import random as rdm
 
 
 Landmark = rcc.recordclass('Landmark', ['POSE', 'TARGET_COVERAGE', 'coverage', 'contributed_coverage'])
-Landmark.__new__.__defaults__ = 0.0,
-landmarks = dict()
+Landmark.__new__.__defaults__ = 0.0, 0.0
+landmarks = [Landmark(cll.POSES[i], cll.TARGETS[i]) for i in range(cll.NUM_LANDMARKS)]
 reference_landmark = None
+
+
 
 Agent = rcc.recordclass('Agent', ['POSE_SUBSCRIBER', 'pose'])
 Agent.__new__.__defaults__ = None,
@@ -34,8 +37,12 @@ active_controller = ControllerType.COVERAGE
 
 pose = None
 cmd_twist = None
-inspection_complete = False
 last_cloud_connection_time = None
+
+coverages = [0.0]*cll.NUM_LANDMARKS
+contributed_coverages = [0.0]*cll.NUM_LANDMARKS
+total_contribution = 0.0
+
 
 #footprint = cfp.CompositeFootprint(best_distance=1.5)
 #OFFSET = [float(elem) for elem in rp.get_param("/#offset").split()]
@@ -57,14 +64,14 @@ TIME_STEP = 1/FREQUENCY
 FAST_RATE = rp.Rate(FREQUENCY)
 SLOW_RATE = rp.Rate(FREQUENCY)
 rate = FAST_RATE
-GAIN = 4.0
+GAIN = 0.5
 SATURATION = 0.5
-CAPACITY = 300
 FOOTPRINT = cfp.EggFootprint()
-FOOTPRINT = FOOTPRINT*FOOTPRINT*cfp.AlignmentFootprint()
+FOOTPRINT = FOOTPRINT*cfp.AlignmentFootprint()
 FEASIBLE_SET = None
 COLLISION_SET = None
 CLOUD_DWELL_TIME = 5.0
+CONTRIBUTION_THRESHOLD = 1.0
 
 rp.wait_for_service(service="/cloud_access")
 CLOUD_ACCESS_PROXY = rp.ServiceProxy(name="/cloud_access", service_class=ccs.CloudAccess)
@@ -122,10 +129,11 @@ def pose_controller():
     pos_grad = gmi.Vector()
     ori_grad = gmi.Vector()
     if not reference_landmark is None:
-        pos_grad = GAIN*((reference_landmark.POSE.position-pose.position)-.5*pose.orientation.xh)
-        ori_grad = 0.3*GAIN*(pose.orientation.xh.cross(reference_landmark.POSE.orientation.xh))
+        ref_pose = reference_landmark.POSE
+        pos_grad = GAIN*((ref_pose.position-pose.position)-pose.orientation.xh)
+        ori_grad = 0.3*GAIN*(pose.orientation.xh.cross(ref_pose.orientation.xh))
     value = 0.0
-    for landmark in landmarks.values():
+    for landmark in landmarks:
         if landmark.coverage < landmark.TARGET_COVERAGE:
             val, _, _ = FOOTPRINT(pose, landmark.POSE)
             landmark.coverage += val
@@ -138,7 +146,7 @@ def coverage_controller():
     value = 0.0
     pos_grad = gmi.Vector()
     ori_grad = gmi.Vector()
-    for landmark in landmarks.values():
+    for landmark in landmarks:
         if landmark.coverage < landmark.TARGET_COVERAGE:
             val, pg, og = FOOTPRINT(pose, landmark.POSE)
             value += val
@@ -150,43 +158,45 @@ def coverage_controller():
 
 
 def cloud_access():
-    global landmarks, inspection_complete, last_cloud_connection_time
-    ids_to_return = landmarks.keys()
-    contributions = [landmarks[id_].contributed_coverage for id_ in ids_to_return]
-    request = ccs.CloudAccessRequest(pose, NAME, CAPACITY, ids_to_return, contributions)
+    rp.logwarn(NAME + ": Accessing the cloud.")
+    global last_cloud_connection_time
+    contributions = [lmk.contributed_coverage for lmk in landmarks]
+    request = ccs.CloudAccessRequest(contributions)
     response = CLOUD_ACCESS_PROXY.call(request)
-    landmarks = dict()
-    for id_, lmk_pose, target, coverage in zip(response.ids, response.poses, response.target_coverages, response.current_coverages):
-        landmarks[id_] = Landmark(gmi.Pose(lmk_pose), target, coverage)
-    if len(landmarks) is 0:
-        inspection_complete = True
+    for index, coverage in enumerate(response.coverages):
+        landmarks[index].coverage = coverage
     last_cloud_connection_time = rp.get_time()
-    rp.logwarn(NAME + ": Accessing the cloud, new landmarks " + str(landmarks.keys()))
 
 
 
 
 
 
+inspection_complete = False
 while not rp.is_shutdown() and rp.get_time() < INITIAL_TIME + DEPARTURE_TIME:
     LOCK.acquire()
     if not pose is None:
+        active_landmarks = filter(lambda lmk: lmk.coverage < lmk.TARGET_COVERAGE, landmarks)
+        if len(active_landmarks) is 0 and not inspection_complete:
+            inspection_complete = True
+            reference_landmark = None
+            cloud_access()
         if active_controller is ControllerType.POSE:
             value, pos_grad, ori_grad = pose_controller()
-            if value > 0.8:
+            if value > 0.5:
                 active_controller = ControllerType.COVERAGE
                 reference_landmark = None
                 rp.logwarn(NAME + ": Swithing to the coverage controller")
         if active_controller is ControllerType.COVERAGE:
-            val, pos_grad, ori_grad = coverage_controller()
-            if val < 0.01:
-                if last_cloud_connection_time is None or rp.get_time() > last_cloud_connection_time + CLOUD_DWELL_TIME:
-                    cloud_access()
-                else:
-                    active_controller = ControllerType.POSE
-                    #rp.logwarn(str(landmarks.keys()))
-                    if len(landmarks)>0: reference_landmark = landmarks[rdm.choice(landmarks.keys())]
-                    rp.logwarn(NAME + ": Swithing to the pose controller")
+            value, pos_grad, ori_grad = coverage_controller()
+            if value < 0.01 and len(active_landmarks)>0:
+                active_controller = ControllerType.POSE
+                distances = [(lmk.POSE.position-pose.position).norm + 5*(1-lmk.POSE.orientation.xh*pose.orientation.xh) for lmk in active_landmarks]
+                min_idx = np.argmin(distances)
+                reference_landmark = active_landmarks[min_idx]
+        total_contribution += value
+        if (total_contribution > CONTRIBUTION_THRESHOLD*len(active_landmarks)) and (last_cloud_connection_time is None or rp.get_time() > last_cloud_connection_time + CLOUD_DWELL_TIME):
+            cloud_access()
         # if len(landmarks) is 0:
         #     new_landmarks = assign_landmarks_proxy.call(pose, NAME, LANDMARK_CAPACITY)
         #     for lmk_pose, id_, target_coverage, coverage in zip(new_landmarks.poses, new_landmarks.ids, new_landmarks.target_coverages, new_landmarks.coverages):
@@ -202,39 +212,40 @@ while not rp.is_shutdown() and rp.get_time() < INITIAL_TIME + DEPARTURE_TIME:
         #         pos_grad += pg
         #         ori_grad += og
         #         #rp.logwarn(landmark)
-        pos_grad *= GAIN
-        ori_grad *= 0.3*GAIN
+        #num = len(filter(lambda lmk: lmk.coverage < lmk.TARGET_COVERAGE and FOOTPRINT(pose, lmk.POSE)[0]>0, landmarks)) + 1
+        pos_grad *= GAIN*(1.0+len(active_landmarks))
+        ori_grad *= 0.4*GAIN*(1.0+len(active_landmarks))
         ori_grad = ori_grad.project_onto(gmi.E3)
-        if not COLLISION_SET is None:
-            colliding_nbr = None
-            collision_danger = 0.0
-            for name, nbr in other_agents.items():
-                if not nbr.pose is None:
-                    violation = collision_set.indicator_function(nbr.pose.position, pose.position)
-                    if (name < NAME or (len(landmarks) is 0)) and violation < collision_danger:
-                        colliding_nbr = name
-                        collision_danger = violation
-                        rp.logwarn("@{}: Collision detected: {}".format(NAME, (nbr.pose.position-pose.position).norm))
-                        #owo = collision_set.outward_orthogonal(nbr.pose.position, pose.position)
-                        # if owo*pos_grad < 0:
-                        #     owos.append(owo)
-                    #nbr.pose = None
-            # if len(owos) > 2:
-            #     pos_grad = gmi.Vector()
-            # if len(owos) is 2:
-            #     pos_grad = pos_grad.project_onto(owos[0].cross(owos[1]))
-            # if len(owos) is 1:
-            #     pos_grad -= pos_grad.project_onto(owos[0])
-            if not colliding_nbr is None:
-                pos_grad = -GAIN*collision_danger*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
+        # if not COLLISION_SET is None:
+        #     colliding_nbr = None
+        #     collision_danger = 0.0
+        #     for name, nbr in other_agents.items():
+        #         if not nbr.pose is None:
+        #             violation = collision_set.indicator_function(nbr.pose.position, pose.position)
+        #             if (name < NAME or (len(landmarks) is 0)) and violation < collision_danger:
+        #                 colliding_nbr = name
+        #                 collision_danger = violation
+        #                 rp.logwarn("@{}: Collision detected: {}".format(NAME, (nbr.pose.position-pose.position).norm))
+        #                 #owo = collision_set.outward_orthogonal(nbr.pose.position, pose.position)
+        #                 # if owo*pos_grad < 0:
+        #                 #     owos.append(owo)
+        #             #nbr.pose = None
+        #     # if len(owos) > 2:
+        #     #     pos_grad = gmi.Vector()
+        #     # if len(owos) is 2:
+        #     #     pos_grad = pos_grad.project_onto(owos[0].cross(owos[1]))
+        #     # if len(owos) is 1:
+        #     #     pos_grad -= pos_grad.project_onto(owos[0])
+        #     if not colliding_nbr is None:
+        #         pos_grad = -GAIN*collision_danger*collision_set.outward_orthogonal(other_agents[colliding_nbr].pose.position, pose.position)
                 #rp.logwarn(pos_grad.norm)
-        if not FEASIBLE_SET is None and FEASIBLE_SET.indicator_function(pose.position) < 0.0:
-            rp.logwarn("@{}: Out of the feasible cylinder: distance is {}".format(NAME, np.linalg.norm([pose.position.x, pose.position.y])))
-            owo = FEASIBLE_SET.outward_orthogonal(pose.position)
-            if owo*pos_grad < 0:
-                pos_grad -= pos_grad.project_onto(owo)
+        # if not FEASIBLE_SET is None and FEASIBLE_SET.indicator_function(pose.position) < 0.0:
+        #     rp.logwarn("@{}: Out of the feasible cylinder: distance is {}".format(NAME, np.linalg.norm([pose.position.x, pose.position.y])))
+        #     owo = FEASIBLE_SET.outward_orthogonal(pose.position)
+        #     if owo*pos_grad < 0:
+        #         pos_grad -= pos_grad.project_onto(owo)
         pos_grad = pos_grad.saturate(SATURATION)
-        ori_grad = ori_grad.saturate(0.3*SATURATION)
+        ori_grad = ori_grad.saturate(0.4*SATURATION)
         # if pos_grad.norm < 1e-4:
         #     ids_to_return = list()
         #     coverages_to_return = list()
@@ -249,20 +260,20 @@ while not rp.is_shutdown() and rp.get_time() < INITIAL_TIME + DEPARTURE_TIME:
         #     rate = SLOW_RATE
         pub.publish(pos_grad, ori_grad)
         #pose = None
-        ids_to_return = list()
-        coverages_to_return = list()
-        for key, landmark in landmarks.items():
-            if landmark.coverage > landmark.TARGET_COVERAGE:
-                ids_to_return.append(key)
-                coverages_to_return.append(landmarks[key].coverage)
-        if len(ids_to_return) > 0:
-            try:
-                return_landmarks_proxy.call(ids_to_return, coverages_to_return)
-                rp.logwarn("@{} controller: I returned the landmarks {}".format(NAME, ids_to_return))
-                for id_ in ids_to_return:
-                    landmarks.pop(id_)
-            except:
-                pass
+        # ids_to_return = list()
+        # coverages_to_return = list()
+        # for index, landmark in enumerate(landmarks):
+        #     if landmark.coverage > landmark.TARGET_COVERAGE:
+        #         ids_to_return.append(key)
+        #         coverages_to_return.append(landmarks[key].coverage)
+        # if len(ids_to_return) > 0:
+        #     try:
+        #         return_landmarks_proxy.call(ids_to_return, coverages_to_return)
+        #         rp.logwarn("@{} controller: I returned the landmarks {}".format(NAME, ids_to_return))
+        #         for id_ in ids_to_return:
+        #             landmarks.pop(id_)
+        #     except:
+        #         pass
     LOCK.release()
     new_agent_pub.publish(NAME)
     controller_pub.publish(active_controller is ControllerType.COVERAGE)
@@ -284,6 +295,8 @@ while not rp.is_shutdown() and rp.get_time() < INITIAL_TIME + DEPARTURE_TIME:
 # if inspection_complete:
 #     rp.logwarn("{}: The inspection is complete!".format(NAME))
 
-rp.wait_for_service("/cancel_agent")
-draw_agent_proxy = rp.ServiceProxy(name="/cancel_agent", service_class=ccs.CancelAgent)
-draw_agent_proxy.call(NAME)
+cloud_access()
+rp.logwarn(NAME + ": Inspection complete!")
+# rp.wait_for_service("/cancel_agent")
+# draw_agent_proxy = rp.ServiceProxy(name="/cancel_agent", service_class=ccs.CancelAgent)
+# draw_agent_proxy.call(NAME)

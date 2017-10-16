@@ -6,7 +6,7 @@
 
   <group ns="BLUE">
     <param name="name" value="BLUE"/>
-    <param name="initial_position" value="0 0 0"/>
+    <param name="initial_position" value="-1.5 -1 0"/>
     <param name="initial_angle" value="1.67"/>
     <param name="arrival_time" value="3"/>
     <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
@@ -15,7 +15,7 @@
 
   <group ns="RED">
     <param name="name" value="RED"/>
-    <param name="initial_position" value="-3 0 0"/>
+    <param name="initial_position" value="-0.5 -1 0"/>
     <param name="initial_angle" value="1.67"/>
     <param name="arrival_time" value="3"/>
     <node name="agent" pkg="cloud_coverage" type="simulator.py"/>
@@ -24,7 +24,7 @@
 
   <group ns="GREEN">
     <param name="name" value="GREEN"/>
-    <param name="initial_position" value="-3 0 3"/>
+    <param name="initial_position" value="0.5 -1 0"/>
     <param name="initial_angle" value="1.67"/>
     <param name="arrival_time" value="3"/>
     <param name="departure_time" value="400"/>
@@ -34,7 +34,7 @@
 
   <group ns="MAGENTA">
     <param name="name" value="MAGENTA"/>
-    <param name="initial_position" value="0 0 3"/>
+    <param name="initial_position" value="1.5 -1 0"/>
     <param name="initial_angle" value="1.67"/>
     <param name="arrival_time" value="3"/>
     <param name="departure_time" value="400"/>
@@ -44,7 +44,7 @@
 
   <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
 
-  <!-- <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose /GREEN/pose /RED/pose /MAGENTA/pose /total_coverage_error -o $(find cloud_coverage)_ecc"/> -->
+  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose /GREEN/pose /RED/pose /MAGENTA/pose /BLUE/controller_type /GREEN/controller_type /RED/controller_type /MAGENTA/controller_type /coverage_errors /total_coverage_error -o $(find cloud_coverage)_ecc"/>
 
   <!-- <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/reference -o $(find cloud_coverage)_turbine"/> -->
 

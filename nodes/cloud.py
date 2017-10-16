@@ -4,76 +4,54 @@ import geomthree.impl as gmi
 import geometry_msgs.msg as gms
 import std_msgs.msg as sms
 import cloud_coverage.srv as ccs
+import cloud_coverage.footprints as ftp
+import cloud_coverage.landmarks_loader as cll
 
 import rospy as rp
 import threading as thd
-
-import recordclass as rcc
 import random as rdm
-
 import numpy as np
-import cloud_coverage.footprints as ftp
+import recordclass as rcc
 
 
 
-Landmark = rcc.recordclass('Landmark', ['POSE', 'TARGET_COVERAGE', 'coverage', 'assigned_agent'])
-Landmark.__new__.__defaults__ = 0.0, None
 
-FOOTPRINT = ftp.CompositeFootprint()
-database = dict()
+Landmark = rcc.recordclass('Landmark', ['POSE', 'TARGET_COVERAGE', 'coverage'])
+Landmark.__new__.__defaults__ = 0.0,
+database = [Landmark(pose, target) for pose, target in zip(cll.POSES, cll.TARGETS)]
+
+# FOOTPRINT = ftp.CompositeFootprint()
 LOCK = thd.Lock()
-
+# coverages = [0.0]*cll.NUM_LANDMARKS
+# assigned_agents = [None]*cll.NUM_LANDMARKS
 
 
 
 
 rp.init_node("cloud")
-RATE = rp.Rate(15.0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+RATE = rp.Rate(10.0)
 
 rp.wait_for_service(service="draw_landmarks")
 draw_landmarks_proxy = rp.ServiceProxy(name="draw_landmarks", service_class=ccs.DrawLandmarks)
 
-def add_landmarks_handler(request):
-    LOCK.acquire()
-    start_counter = len(database)
-    counter = start_counter
-    draw_landmarks_request = ccs.DrawLandmarksRequest()
-    for pose, target in zip(request.poses, request.target_coverages):
-        database[counter] = Landmark(gmi.Pose(pose), target)
-        counter += 1
-    ids = list(range(start_counter, counter))
-    draw_landmarks_proxy.call(request.poses, ids, ["black"]*len(ids), [0.75]*len(ids))
-    LOCK.release()
-    return ccs.AddLandmarksResponse(ids)
-
-rp.Service(name="add_landmarks", service_class=ccs.AddLandmarks, handler=add_landmarks_handler)
+draw_landmarks_proxy.call(cll.POSES,)
 
 
 
-
-
-
-def forward_database_handler(request):
-    LOCK.acquire()
-    LOCK.release()
-    return css.ForwardDatabaseResponse()
+# def add_landmarks_handler(request):
+#     LOCK.acquire()
+#     start_counter = len(database)
+#     counter = start_counter
+#     draw_landmarks_request = ccs.DrawLandmarksRequest()
+#     for pose, target in zip(request.poses, request.target_coverages):
+#         database[counter] = Landmark(gmi.Pose(pose), target)
+#         counter += 1
+#     ids = list(range(start_counter, counter))
+#     draw_landmarks_proxy.call(request.poses, ids, ["black"]*len(ids), [0.75]*len(ids))
+#     LOCK.release()
+#     return ccs.AddLandmarksResponse(ids)
+#
+# rp.Service(name="add_landmarks", service_class=ccs.AddLandmarks, handler=add_landmarks_handler)
 
 
 
@@ -116,7 +94,7 @@ recolor_landmarks_proxy = rp.ServiceProxy(name="recolor_landmarks", service_clas
 #         return ccs.AssignLandmarksResponse()
     # for id_, lmk in database.items():
     #     if not lmk.cleared:
-    #         rp.logwarn("@Cloud: Landmark {} assigned to {}".format(id_, request.name))
+    #         rp.logwarn("@Cloud: Landmark {} assigned to {}".format(id_, request.name))[COLORMAP(lmk.)
     #         recolor_landmarks_proxy.call([id_], ["red"])
     #         LOCK.release()
     #         return ccs.AssignLandmarksResponse(poses=[lmk.POSE], ids=[id_], target_coverages=[lmk.TARGET_COVERAGE], coverages=[lmk.coverage])
@@ -138,39 +116,45 @@ recolor_landmarks_proxy = rp.ServiceProxy(name="recolor_landmarks", service_clas
 
 def cloud_access_handler(request):
     LOCK.acquire()
-    for id_, contribution in zip(request.ids, request.contributions):
-        database[id_].coverage += contribution
-        database[id_].assigned_agent = None
-    lmks_to_assign = list()
-    for index, lmk in database.items():
-        sns_pose = gmi.Pose(request.pose)
-        if lmk.coverage < lmk.TARGET_COVERAGE and lmk.assigned_agent is None:
-            idx = 0
-            while idx < len(lmks_to_assign) and FOOTPRINT(sns_pose, lmk.POSE) < FOOTPRINT(sns_pose, database[lmks_to_assign[idx]].POSE):
-                idx += 1
-            if idx < len(lmks_to_assign):
-                lmks_to_assign.insert(idx, index)
-                lmks_to_assign = lmks_to_assign[0:request.capacity]
-            elif len(lmks_to_assign) < request.capacity:
-                lmks_to_assign.append(index)
-    # idx = 0
-    # while len(ids_to_assign) < request.capacity and idx < len(database):
-    #     lmk = database[idx]
-    #     if lmk.coverage < lmk.TARGET_COVERAGE and lmk.assigned_agent is None:
-    #         ids_to_assign.add(idx)
-    #     idx += 1
-    poses = list()
-    targets = list()
-    coverages = list()
-    for idx in lmks_to_assign:
-        poses.append(database[idx].POSE)
-        targets.append(database[idx].TARGET_COVERAGE)
-        coverages.append(database[idx].coverage)
-        database[idx].assigned_agent = request.name
+    for index, landmark in enumerate(database):
+        landmark.coverage += request.contributions[index]
     LOCK.release()
-    recolor_landmarks_proxy.call(request.ids, ["black"]*len(request.ids), [0.25]*len(request.ids))
-    recolor_landmarks_proxy.call(lmks_to_assign, [request.name]*len(lmks_to_assign), [0.5]*len(lmks_to_assign))
-    return ccs.CloudAccessResponse(lmks_to_assign, poses, targets, coverages)
+    levels = [max([1.0-lmk.coverage/lmk.TARGET_COVERAGE, 0.0]) for lmk in database]
+    recolor_landmarks_proxy.call(range(cll.NUM_LANDMARKS), levels)
+    return ccs.CloudAccessResponse([lmk.coverage for lmk in database])
+
+    # for id_, contribution in zip(request.ids, request.contributions):
+    #     database[id_].coverage += contribution
+    # lmks_to_assign = list()
+    # for index, lmk in database.items():
+    #     sns_pose = gmi.Pose(request.pose)
+    #     if lmk.coverage < lmk.TARGET_COVERAGE and lmk.assigned_agent is None:
+    #         idx = 0
+    #         while idx < len(lmks_to_assign) and FOOTPRINT(sns_pose, lmk.POSE) < FOOTPRINT(sns_pose, database[lmks_to_assign[idx]].POSE):
+    #             idx += 1
+    #         if idx < len(lmks_to_assign):
+    #             lmks_to_assign.insert(idx, index)
+    #             lmks_to_assign = lmks_to_assign[0:request.capacity]
+    #         elif len(lmks_to_assign) < request.capacity:
+    #             lmks_to_assign.append(index)
+    # # idx = 0
+    # # while len(ids_to_assign) < request.capacity and idx < len(database):
+    # #     lmk = database[idx]
+    # #     if lmk.coverage < lmk.TARGET_COVERAGE and lmk.assigned_agent is None:
+    # #         ids_to_assign.add(idx)
+    # #     idx += 1
+    # poses = list()
+    # targets = list()
+    # coverages = list()
+    # for idx in lmks_to_assign:
+    #     poses.append(database[idx].POSE)
+    #     targets.append(database[idx].TARGET_COVERAGE)
+    #     coverages.append(database[idx].coverage)
+    #     database[idx].assigned_agent = request.name
+    # LOCK.release()
+    # recolor_landmarks_proxy.call(request.ids, ["black"]*len(request.ids), [0.25]*len(request.ids))
+    # recolor_landmarks_proxy.call(lmks_to_assign, [request.name]*len(lmks_to_assign), [0.5]*len(lmks_to_assign))
+    # return ccs.CloudAccessResponse(lmks_to_assign, poses, targets, coverages)
 
 rp.Service(name="cloud_access", service_class=ccs.CloudAccess, handler=cloud_access_handler)
 
@@ -213,9 +197,9 @@ pub = rp.Publisher("/coverage_errors", sms.Float64MultiArray, queue_size=10)
 total_pub = rp.Publisher("/total_coverage_error", sms.Float64, queue_size=10)
 while not rp.is_shutdown():
     LOCK.acquire()
-    data = [0.0]*len(database)
+    data = [0.0]*cll.NUM_LANDMARKS
     total = 0.0
-    for index, lmk in database.items():
+    for index, lmk in enumerate(database):
         err = max((lmk.TARGET_COVERAGE - lmk.coverage, 0.0))
         data[index] = err
         total += err

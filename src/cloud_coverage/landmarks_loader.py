@@ -2,8 +2,8 @@
 
 import geomthree.impl as gmi
 import geometry_msgs.msg as gms
-import cloud_coverage.srv as ccs
-import rospy as rp
+#import cloud_coverage.srv as ccs
+#import rospy as rp
 
 import threading as thd
 import math as m
@@ -67,28 +67,29 @@ import math as m
 
 
 """Sinus Wall"""
-poses = list()
-targets = list()
+POSES = list()
+TARGETS = list()
 
-X0 = -2.0
-Z0 = 1.0
-XMAX = 2.0
-ZMAX = 4.0
-DX = 0.15
-DZ = 0.4
+X0 = -3.0
+Z0 = 0.0
+XMAX = 3.0
+ZMAX = 6.0
+DX = 0.3
+DZ = 0.8
 
 z = Z0
 while z < ZMAX:
     x = X0
     while x < XMAX:
-        pos = gmi.Point(x,m.sin(2*m.pi/(XMAX-X0)*x),z)
-        ori = gmi.UnitQuaternion(axis=gmi.E3, angle=m.pi/2+m.cos(2*m.pi/(XMAX-X0)*x))
+        pos = gmi.Point(x,2.0+0.8*m.sin(2*m.pi/(XMAX-X0)*x),z)
+        ori = gmi.UnitQuaternion(axis=gmi.E3, angle=m.pi/2+0.8*m.cos(2*m.pi/(XMAX-X0)*x))
         pose = gmi.Pose(pos,ori)
-        poses.append(pose.serialized)
-        targets.append(200.0)
+        POSES.append(pose)
+        TARGETS.append(100.0)
         x += DX
     z += DZ
 
+NUM_LANDMARKS = len(POSES)
 
 
 
@@ -110,10 +111,10 @@ while z < ZMAX:
 
 
 
-rp.init_node("landmarks_loader")
-
-
-
-rp.wait_for_service("add_landmarks")
-proxy = rp.ServiceProxy("add_landmarks", ccs.AddLandmarks)
-proxy.call(poses, targets)
+# rp.init_node("landmarks_loader")
+#
+#
+#
+# rp.wait_for_service("add_landmarks")
+# proxy = rp.ServiceProxy("add_landmarks", ccs.AddLandmarks)
+# proxy.call(poses, targets)

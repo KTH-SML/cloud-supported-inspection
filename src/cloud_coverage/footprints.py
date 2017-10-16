@@ -65,7 +65,7 @@ class ProductFootprint(_AbstractFootprint):
 
 class EggFootprint(_AbstractFootprint):
 
-    def __init__(self, small_radius=0.5, big_radius=1.0):
+    def __init__(self, small_radius=0.5, big_radius=2.0):
         self.__SMALL_RADIUS = small_radius
         self.__BIG_RADIUS = big_radius
 
@@ -169,7 +169,7 @@ if __name__ == "__main__":
 
     efp = EggFootprint()
     alg = AlignmentFootprint()
-    efp = efp*efp*alg
+    efp = efp*alg
     mqx, mqy, values = efp.generate_plot_data(xlim=(-1,5), ylim=(-5,5))
     plt.figure()
     efp.wireframe_plot(mqx, mqy, values)
