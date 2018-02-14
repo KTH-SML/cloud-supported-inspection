@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import matplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as mcm
 
@@ -12,7 +13,7 @@ import threading as thd
 import recordclass as rcc
 
 
-#mpl.rc('text', usetex=True)
+mpl.rc('text', usetex=True)
 
 Landmark = rcc.recordclass('Landmark', ['POSE', 'artists'])
 Landmark.__new__.__defaults__ = None
@@ -38,7 +39,7 @@ COLORMAP = mcm.jet
 
 plt.ion()
 fig = plt.figure(figsize=(15,15))
-ax = fig.gca(projection='3d')
+ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel(r"$x$")
 ax.set_ylabel(r"$y$")
 ax.set_zlabel(r"$z$")
@@ -125,6 +126,9 @@ def cancel_agent_handler(req):
 rp.Service(name="cancel_agent", service_class=ccs.CancelAgent, handler=cancel_agent_handler)
 
 
+SNAPSHOT_TIMES = [2,20,40,60]
+snapshot_index = 0
+INITIAL_TIME = rp.get_time()
 
 while not rp.is_shutdown():
     LANDMARK_LOCK.acquire()
@@ -163,5 +167,9 @@ while not rp.is_shutdown():
             agent.artists = agent.pose.draw(color="black")
             agent.pose = None
     AGENT_LOCK.release()
+    if snapshot_index < len(SNAPSHOT_TIMES) and rp.get_time()-INITIAL_TIME > SNAPSHOT_TIMES[snapshot_index]:
+        plt.savefig("./snapshot"+str(snapshot_index)+".pdf")
+        rp.logwarn("Snaphot taken!")
+        snapshot_index += 1
     plt.draw()
     RATE.sleep()

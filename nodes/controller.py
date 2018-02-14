@@ -67,14 +67,16 @@ rate = FAST_RATE
 GAIN = 0.5
 SATURATION = 0.5
 FOOTPRINT = cfp.EggFootprint()
-FOOTPRINT = FOOTPRINT*cfp.AlignmentFootprint()
+FOOTPRINT = FOOTPRINT*FOOTPRINT*cfp.AlignmentFootprint()
 FEASIBLE_SET = None
 COLLISION_SET = None
 CLOUD_DWELL_TIME = 5.0
-CONTRIBUTION_THRESHOLD = 1.0
+CONTRIBUTION_THRESHOLD = 0.5
 
 rp.wait_for_service(service="/cloud_access")
 CLOUD_ACCESS_PROXY = rp.ServiceProxy(name="/cloud_access", service_class=ccs.CloudAccess)
+cloud_accesses_counter = 0
+cloud_accesses_pub = rp.Publisher("cloud_accesses", sms.Int32, queue_size=10)
 
 
 while rp.get_time() < INITIAL_TIME + ARRIVAL_TIME:
@@ -159,13 +161,14 @@ def coverage_controller():
 
 def cloud_access():
     rp.logwarn(NAME + ": Accessing the cloud.")
-    global last_cloud_connection_time
+    global last_cloud_connection_time, cloud_accesses_counter
     contributions = [lmk.contributed_coverage for lmk in landmarks]
     request = ccs.CloudAccessRequest(contributions)
     response = CLOUD_ACCESS_PROXY.call(request)
     for index, coverage in enumerate(response.coverages):
         landmarks[index].coverage = coverage
     last_cloud_connection_time = rp.get_time()
+    cloud_accesses_counter += 1
 
 
 
@@ -259,6 +262,8 @@ while not rp.is_shutdown() and rp.get_time() < INITIAL_TIME + DEPARTURE_TIME:
         #             landmarks.pop(id_)
         #     rate = SLOW_RATE
         pub.publish(pos_grad, ori_grad)
+        controller_pub.publish(active_controller is ControllerType.COVERAGE)
+        cloud_accesses_pub.publish(cloud_accesses_counter)
         #pose = None
         # ids_to_return = list()
         # coverages_to_return = list()
@@ -276,7 +281,6 @@ while not rp.is_shutdown() and rp.get_time() < INITIAL_TIME + DEPARTURE_TIME:
         #         pass
     LOCK.release()
     new_agent_pub.publish(NAME)
-    controller_pub.publish(active_controller is ControllerType.COVERAGE)
     rate.sleep()
 
 # LOCK.acquire()

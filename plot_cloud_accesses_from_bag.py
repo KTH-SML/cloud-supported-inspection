@@ -6,11 +6,11 @@ import sys
 bag = rb.Bag(sys.argv[1])
 database = dict()
 
-for topic, msg, time in bag.read_messages(topics=['/BLUE/controller_type', '/GREEN/controller_type', '/RED/controller_type', '/MAGENTA/controller_type']):
+for topic, msg, time in bag.read_messages(topics=['/BLUE/cloud_accesses', '/GREEN/cloud_accesses', '/RED/cloud_accesses', '/MAGENTA/cloud_accesses']):
     if not topic in database:
         database[topic] = (list(), list())
     database[topic][0].append(time.secs+time.nsecs*1e-9)
-    database[topic][1].append(float(msg.data))
+    database[topic][1].append(msg.data)
 bag.close()
 
 for topic, data in database.items():
@@ -24,9 +24,9 @@ index = 0
 for topic, data in database.items():
     plt.sca(axes[index])
     axes[index].plot(data[0], data[1])
-    axes[index].set_ylim([-0.1, 1.1])
     axes[index].grid(True)
-    plt.yticks([0.0, 1.0], [r"pose", r"cov"])
+    axes[index].set_ylabel(str(index+1))
+    plt.yticks(range(0,17,8))
     index += 1
-plt.savefig("controller_type.pdf")
+plt.savefig("accesses.pdf")
 plt.show()

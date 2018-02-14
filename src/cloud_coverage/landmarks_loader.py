@@ -74,8 +74,8 @@ X0 = -3.0
 Z0 = 0.0
 XMAX = 3.0
 ZMAX = 6.0
-DX = 0.3
-DZ = 0.8
+DX = 0.4
+DZ = 1.0
 
 z = Z0
 while z < ZMAX:

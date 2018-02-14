@@ -65,7 +65,7 @@ class ProductFootprint(_AbstractFootprint):
 
 class EggFootprint(_AbstractFootprint):
 
-    def __init__(self, small_radius=0.5, big_radius=2.0):
+    def __init__(self, small_radius=1.0, big_radius=2.0):
         self.__SMALL_RADIUS = small_radius
         self.__BIG_RADIUS = big_radius
 
@@ -169,13 +169,16 @@ if __name__ == "__main__":
 
     efp = EggFootprint()
     alg = AlignmentFootprint()
-    efp = efp*alg
-    mqx, mqy, values = efp.generate_plot_data(xlim=(-1,5), ylim=(-5,5))
+    efp = efp*efp*alg
+    mqx, mqy, values = efp.generate_plot_data(xlim=(0,3), ylim=(-2,2))
     plt.figure()
     efp.wireframe_plot(mqx, mqy, values)
 
-    plt.figure()
+    plt.figure(figsize=(6,4))
     efp.contour_plot(mqx, mqy, values)
+    plt.xlabel(r"$x$")
+    plt.ylabel(r"$y$")
+    plt.savefig("footprint.pdf")
 
     # fpt = SplineFootprint()
     # mqx, mqy, values = fpt.generate_plot_data(xlim=(-1,5), ylim=(-3,3))

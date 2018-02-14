@@ -16,7 +16,10 @@ for index, time in enumerate(times):
     times[index] = time-INITIAL_TIME
 
 
-plt.figure()
+plt.figure(figsize=(6,4))
 plt.grid(True)
 plt.plot(times, errors)
+plt.xlabel(r"$t$")
+plt.ylabel(r"$10^{-3}\hat{E}^{\mathrm{cloud}}$")
+plt.savefig("cloud_error.pdf")
 plt.show()

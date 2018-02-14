@@ -44,7 +44,7 @@
 
   <node name="loader" pkg="cloud_coverage" type="landmarks_loader.py"/>
 
-  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose /GREEN/pose /RED/pose /MAGENTA/pose /BLUE/controller_type /GREEN/controller_type /RED/controller_type /MAGENTA/controller_type /coverage_errors /total_coverage_error -o $(find cloud_coverage)_ecc"/>
+  <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/pose /GREEN/pose /RED/pose /MAGENTA/pose /BLUE/controller_type /GREEN/controller_type /RED/controller_type /MAGENTA/controller_type  /BLUE/cloud_accesses /GREEN/cloud_accesses /RED/cloud_accesses /MAGENTA/cloud_accesses /coverage_errors /total_coverage_error -o $(find cloud_coverage)_ecc"/>
 
   <!-- <node name="record_path" pkg="rosbag" type="record" args="record /BLUE/reference -o $(find cloud_coverage)_turbine"/> -->
 

@@ -24,4 +24,5 @@ for topic, traj in trajectories.items():
     ys = [point[2] for point in traj]
     zs = [point[3] for point in traj]
     ax.plot(xs, ys, zs=zs, color=topic.split('/')[1])
+plt.savefig("trajectories.pdf")
 plt.show()
