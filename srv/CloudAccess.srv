@@ -1,0 +1,10 @@
+geometry_msgs/Pose pose
+string name
+int32 capacity
+int32[] ids
+float64[] contributions
+---
+int32[] ids
+geometry_msgs/Pose[] poses
+float64[] target_coverages
+float64[] current_coverages

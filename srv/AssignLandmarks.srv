@@ -1,5 +1,6 @@
 geometry_msgs/Pose pose
 string name
+int64 capacity
 ---
 geometry_msgs/Pose[] poses
 int32[] ids

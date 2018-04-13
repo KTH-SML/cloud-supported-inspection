@@ -62,6 +62,7 @@ AssignLandmarks.srv
 ReturnLandmarks.srv
 CancelLandmarks.srv
 RecolorLandmarks.srv
+CloudAccess.srv
 #   Service1.srv
 #   Service2.srv
 )

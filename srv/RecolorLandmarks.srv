@@ -1,3 +1,4 @@
 int32[] ids
 string[] colors
+float64[] alphas
 ---

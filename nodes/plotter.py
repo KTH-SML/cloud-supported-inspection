@@ -16,7 +16,7 @@ import recordclass as rcc
 Landmark = rcc.recordclass('Landmark', ['POSE', 'artists'])
 Landmark.__new__.__defaults__ = None
 
-IncomingLandmark = rcc.recordclass('IncomingLandmark', ['POSE', 'COLOR'])
+IncomingLandmark = rcc.recordclass('IncomingLandmark', ['POSE', 'COLOR', 'ALPHA'])
 
 LANDMARK_LOCK = thd.Lock()
 incoming_landmarks = dict()
@@ -42,10 +42,10 @@ ax.set_ylabel(r"$y$")
 ax.set_zlabel(r"$z$")
 #ax.view_init(90, 0)
 ax.set_autoscalex_on(False)
-ax.set_xlim([-10.0+OFFSET[0], 10.0+OFFSET[0]])
+ax.set_xlim([-2.5+OFFSET[0], 2.5+OFFSET[0]])
 ax.set_autoscaley_on(False)
-ax.set_ylim([-10.0+OFFSET[1], 10.0+OFFSET[1]])
-ax.set_zlim([3.0, 30.0])
+ax.set_ylim([-2.5+OFFSET[1], 2.5+OFFSET[1]])
+ax.set_zlim([0, 5])
 #ax.autoscale_view()
 ax.set_aspect("equal")
 plt.draw()
@@ -66,8 +66,8 @@ pose = None
 def draw_landmarks_handler(request):
     global incoming_landmarks
     LANDMARK_LOCK.acquire()
-    for landmark, landmark_id, color in zip(request.poses, request.ids, request.colors):
-        incoming_landmarks[landmark_id] = IncomingLandmark(gmi.Pose(landmark), color)
+    for landmark, landmark_id, color, alpha in zip(request.poses, request.ids, request.colors, request.alphas):
+        incoming_landmarks[landmark_id] = IncomingLandmark(gmi.Pose(landmark), color, alpha)
     LANDMARK_LOCK.release()
     return ccs.DrawLandmarksResponse()
 
@@ -86,8 +86,8 @@ rp.Service(name="cancel_landmarks", service_class=ccs.CancelLandmarks, handler=c
 def recolor_landmarks_handler(request):
     global landmarks_to_recolor
     LANDMARK_LOCK.acquire()
-    for id_, color in zip(request.ids, request.colors):
-        landmarks_to_recolor[id_] = color
+    for id_, color, alpha in zip(request.ids, request.colors, request.alphas):
+        landmarks_to_recolor[id_] = color, alpha
     LANDMARK_LOCK.release()
     return ccs.RecolorLandmarksResponse()
 
@@ -128,15 +128,15 @@ while not rp.is_shutdown():
     LANDMARK_LOCK.acquire()
     while incoming_landmarks:
         id_, incoming_landmark = incoming_landmarks.popitem()
-        landmarks[id_] = Landmark(POSE=incoming_landmark.POSE, artists=incoming_landmark.POSE.draw(color=incoming_landmark.COLOR, show_x=True, show_y=False, show_z=False, alpha=0.3))
+        landmarks[id_] = Landmark(POSE=incoming_landmark.POSE, artists=incoming_landmark.POSE.draw(color=incoming_landmark.COLOR, show_x=False, show_y=False, show_z=False, alpha=incoming_landmark.ALPHA))
     processed_recolors = list()
     while landmarks_to_recolor:
-        id_, color = landmarks_to_recolor.popitem()
+        id_, data = landmarks_to_recolor.popitem()
         lmk = landmarks.get(id_, None)
         if not lmk is None:
             for artist in lmk.artists:
                 artist.remove()
-            lmk.artists = lmk.POSE.draw(color=color, show_x=True, show_y=False, show_z=False, alpha=0.3)
+            lmk.artists = lmk.POSE.draw(color=data[0], show_x=False, show_y=False, show_z=False, alpha=data[1])
     while landmarks_to_cancel:
         id_ = landmarks_to_cancel.pop()
         lmk = landmarks.get(id_, None)
