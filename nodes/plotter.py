@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 import matplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt
+import matplotlib.cm as mcm
 
 import geomthree.impl as gmi
 import geometry_msgs.msg as gms
@@ -11,12 +13,12 @@ import threading as thd
 import recordclass as rcc
 
 
-#mpl.rc('text', usetex=True)
+mpl.rc('text', usetex=True)
 
 Landmark = rcc.recordclass('Landmark', ['POSE', 'artists'])
 Landmark.__new__.__defaults__ = None
 
-IncomingLandmark = rcc.recordclass('IncomingLandmark', ['POSE', 'COLOR', 'ALPHA'])
+IncomingLandmark = rcc.recordclass('IncomingLandmark', ['POSE'])
 
 LANDMARK_LOCK = thd.Lock()
 incoming_landmarks = dict()
@@ -33,26 +35,27 @@ agents_to_cancel = list()
 
 OFFSET = [float(elem) for elem in rp.get_param("/offset").split()]
 #OFFSET = (16.5, -4.4)
+COLORMAP = mcm.jet
 
 plt.ion()
 fig = plt.figure(figsize=(15,15))
-ax = fig.gca(projection='3d')
+ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel(r"$x$")
 ax.set_ylabel(r"$y$")
 ax.set_zlabel(r"$z$")
 #ax.view_init(90, 0)
 ax.set_autoscalex_on(False)
-ax.set_xlim([-2.5+OFFSET[0], 2.5+OFFSET[0]])
+ax.set_xlim([-4+OFFSET[0], 4+OFFSET[0]])
 ax.set_autoscaley_on(False)
-ax.set_ylim([-2.5+OFFSET[1], 2.5+OFFSET[1]])
-ax.set_zlim([0, 5])
+ax.set_ylim([-4+OFFSET[1], 4+OFFSET[1]])
+ax.set_zlim([0, 8])
 #ax.autoscale_view()
 ax.set_aspect("equal")
 plt.draw()
 
 rp.init_node("plotter")
 
-FREQUENCY = 20.0
+FREQUENCY = 10.0
 RATE = rp.Rate(FREQUENCY)
 TIME_STEP = 1/FREQUENCY
 
@@ -66,8 +69,8 @@ pose = None
 def draw_landmarks_handler(request):
     global incoming_landmarks
     LANDMARK_LOCK.acquire()
-    for landmark, landmark_id, color, alpha in zip(request.poses, request.ids, request.colors, request.alphas):
-        incoming_landmarks[landmark_id] = IncomingLandmark(gmi.Pose(landmark), color, alpha)
+    for index, pose in enumerate(request.poses):
+        incoming_landmarks[index] = IncomingLandmark(gmi.Pose(pose))
     LANDMARK_LOCK.release()
     return ccs.DrawLandmarksResponse()
 
@@ -86,8 +89,8 @@ rp.Service(name="cancel_landmarks", service_class=ccs.CancelLandmarks, handler=c
 def recolor_landmarks_handler(request):
     global landmarks_to_recolor
     LANDMARK_LOCK.acquire()
-    for id_, color, alpha in zip(request.ids, request.colors, request.alphas):
-        landmarks_to_recolor[id_] = color, alpha
+    for id_, level in zip(request.ids, request.levels):
+        landmarks_to_recolor[id_] = level
     LANDMARK_LOCK.release()
     return ccs.RecolorLandmarksResponse()
 
@@ -123,20 +126,23 @@ def cancel_agent_handler(req):
 rp.Service(name="cancel_agent", service_class=ccs.CancelAgent, handler=cancel_agent_handler)
 
 
+SNAPSHOT_TIMES = [2,20,40,60]
+snapshot_index = 0
+INITIAL_TIME = rp.get_time()
 
 while not rp.is_shutdown():
     LANDMARK_LOCK.acquire()
     while incoming_landmarks:
         id_, incoming_landmark = incoming_landmarks.popitem()
-        landmarks[id_] = Landmark(POSE=incoming_landmark.POSE, artists=incoming_landmark.POSE.draw(color=incoming_landmark.COLOR, show_x=False, show_y=False, show_z=False, alpha=incoming_landmark.ALPHA))
+        landmarks[id_] = Landmark(POSE=incoming_landmark.POSE, artists=incoming_landmark.POSE.draw(color=COLORMAP(1.0), show_x=False, show_y=False, show_z=False, alpha=0.75))
     processed_recolors = list()
     while landmarks_to_recolor:
-        id_, data = landmarks_to_recolor.popitem()
+        id_, level = landmarks_to_recolor.popitem()
         lmk = landmarks.get(id_, None)
         if not lmk is None:
             for artist in lmk.artists:
                 artist.remove()
-            lmk.artists = lmk.POSE.draw(color=data[0], show_x=False, show_y=False, show_z=False, alpha=data[1])
+            lmk.artists = lmk.POSE.draw(color=COLORMAP(level), show_x=False, show_y=False, show_z=False, alpha=0.75)
     while landmarks_to_cancel:
         id_ = landmarks_to_cancel.pop()
         lmk = landmarks.get(id_, None)
@@ -158,8 +164,12 @@ while not rp.is_shutdown():
             if not agent.artists is None:
                 [artist.remove() for artist in agent.artists]
                 agent.artists = None
-            agent.artists = agent.pose.draw(color=name)
+            agent.artists = agent.pose.draw(color="black")
             agent.pose = None
     AGENT_LOCK.release()
+    if snapshot_index < len(SNAPSHOT_TIMES) and rp.get_time()-INITIAL_TIME > SNAPSHOT_TIMES[snapshot_index]:
+        plt.savefig("./snapshot"+str(snapshot_index)+".pdf")
+        rp.logwarn("Snaphot taken!")
+        snapshot_index += 1
     plt.draw()
     RATE.sleep()
